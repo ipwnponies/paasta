@@ -45,7 +45,8 @@ def monitoring_defaults(key):
                'https://paasta.readthedocs.io/en/latest/yelpsoa_configs.html#monitoring-yaml',
         'ticket': False,
         'project': None,
-        'realert_every': -1
+        'realert_every': -1,
+        'chronos_job_acceptable_delay': 15 * 60,  # 15 minutes
     }
     return defaults.get(key, None)
 
@@ -81,6 +82,10 @@ def get_realert_every(overrides, service, soa_dir=DEFAULT_SOA_DIR,
                                          service=service,
                                          soa_dir=soa_dir,
                                          monitoring_defaults=monitoring_defaults)
+
+
+def get_chronos_job_acceptable_delay(overrides, service, soa_dir=DEFAULT_SOA_DIR):
+    return __get_monitoring_config_value('chronos_job_acceptable_delay', overrides, service, soa_dir)
 
 
 def get_check_every(overrides, service, soa_dir=DEFAULT_SOA_DIR):

@@ -259,13 +259,18 @@ def test_message_for_status_unknown():
 
 
 @patch('paasta_tools.check_chronos_jobs.job_is_stuck', autospec=True)
-def test_sensu_message_status_ok(mock_job_is_stuck):
+@patch('paasta_tools.monitoring_tools.get_chronos_job_acceptable_delay', autospec=True)
+def test_sensu_message_status_ok(
+        mock_get_chronos_job_acceptable_delay,
+        mock_job_is_stuck):
     mock_job_is_stuck.return_value = False
+    mock_get_chronos_job_acceptable_delay.return_value = 15 * 60
     fake_job = {'name': 'full_job_id',
                 'disabled': False,
                 'lastSuccess': '2016-07-26T22:02:00+00:00'}
     output, status = check_chronos_jobs.sensu_message_status_for_jobs(
-        Mock(get_schedule_interval_in_seconds=Mock(return_value=1)), 'myservice', 'myinstance', 'cluster', fake_job)
+        Mock(get_schedule_interval_in_seconds=Mock(return_value=1)), 'myservice',
+        'myinstance', 'cluster', fake_job, 'fake_soa_dir')
     expected_output = "Last run of job myservice.myinstance Succeded"
     assert output == expected_output
     assert status == pysensu_yelp.Status.OK
@@ -273,55 +278,71 @@ def test_sensu_message_status_ok(mock_job_is_stuck):
 
 @patch('paasta_tools.check_chronos_jobs.job_is_stuck', autospec=True)
 @patch('paasta_tools.check_chronos_jobs.message_for_status', autospec=True)
-def test_sensu_message_status_fail(mock_message_for_status, mock_job_is_stuck):
+@patch('paasta_tools.monitoring_tools.get_chronos_job_acceptable_delay', autospec=True)
+def test_sensu_message_status_fail(
+        mock_get_chronos_job_acceptable_delay,
+        mock_message_for_status,
+        mock_job_is_stuck):
     mock_job_is_stuck.return_value = False
     mock_message_for_status.return_value = 'my failure message'
+    mock_get_chronos_job_acceptable_delay.return_value = 15 * 60
     fake_job = {'name': 'full_job_id',
                 'disabled': False,
                 'lastError': '2016-07-26T22:03:00+00:00'}
     output, status = check_chronos_jobs.sensu_message_status_for_jobs(
-        Mock(get_schedule_interval_in_seconds=Mock(return_value=1)), 'myservice', 'myinstance', 'mycluster', fake_job)
+        Mock(get_schedule_interval_in_seconds=Mock(return_value=1)), 'myservice',
+        'myinstance', 'mycluster', fake_job, 'fake_soa_dir')
     assert output == 'my failure message'
     assert status == pysensu_yelp.Status.CRITICAL
 
 
-def test_sensu_message_status_no_run():
+@patch('paasta_tools.monitoring_tools.get_chronos_job_acceptable_delay', autospec=True)
+def test_sensu_message_status_no_run(mock_get_chronos_job_acceptable_delay):
+    mock_get_chronos_job_acceptable_delay.return_value = 15 * 60
     fake_job = None
     with patch('paasta_tools.check_chronos_jobs.load_chronos_job_config', autospec=True,
                return_value=Mock(get_disabled=Mock(return_value=False))):
         output, status = check_chronos_jobs.sensu_message_status_for_jobs(
-            Mock(get_disabled=Mock(return_value=False)), 'myservice', 'myinstance', 'mycluster', fake_job)
+            Mock(get_disabled=Mock(return_value=False)), 'myservice',
+            'myinstance', 'mycluster', fake_job, 'fake_soa_dir')
     expected_output = "Warning: myservice.myinstance isn't in chronos at all, which means it may not be deployed yet"
     assert output == expected_output
     assert status == pysensu_yelp.Status.WARNING
 
 
-def test_sensu_message_status_no_run_disabled():
+@patch('paasta_tools.monitoring_tools.get_chronos_job_acceptable_delay', autospec=True)
+def test_sensu_message_status_no_run_disabled(mock_get_chronos_job_acceptable_delay):
+    mock_get_chronos_job_acceptable_delay.return_value = 15 * 60
     fake_job = None
     with patch('paasta_tools.check_chronos_jobs.load_chronos_job_config', autospec=True,
                return_value=Mock(get_disabled=Mock(return_value=True))):
         output, status = check_chronos_jobs.sensu_message_status_for_jobs(
-            Mock(), 'myservice', 'myinstance', 'mycluster', fake_job)
+            Mock(), 'myservice', 'myinstance', 'mycluster', fake_job, 'fake_soa_dir')
     expected_output = "Job myservice.myinstance is disabled - ignoring status."
     assert output == expected_output
     assert status == pysensu_yelp.Status.OK
 
 
-def test_sensu_message_status_disabled():
+@patch('paasta_tools.monitoring_tools.get_chronos_job_acceptable_delay', autospec=True)
+def test_sensu_message_status_disabled(mock_get_chronos_job_acceptable_delay):
+    mock_get_chronos_job_acceptable_delay.return_value = 15 * 60
     fake_job = {'name': 'fake_job_id', 'disabled': True}
     output, status = check_chronos_jobs.sensu_message_status_for_jobs(
         chronos_job_config=Mock(),
         service='myservice',
         instance='myinstance',
         cluster='mycluster',
-        chronos_job=fake_job
+        chronos_job=fake_job,
+        soa_dir='fake_soa_dir',
     )
     expected_output = "Job myservice.myinstance is disabled - ignoring status."
     assert output == expected_output
     assert status == pysensu_yelp.Status.OK
 
 
-def test_sensu_message_status_stuck():
+@patch('paasta_tools.monitoring_tools.get_chronos_job_acceptable_delay', autospec=True)
+def test_sensu_message_status_stuck(mock_get_chronos_job_acceptable_delay):
+    mock_get_chronos_job_acceptable_delay.return_value = 15 * 60
     fake_job = {
         'name': 'fake_job_id',
         'disabled': False,
@@ -336,7 +357,8 @@ def test_sensu_message_status_stuck():
         service='myservice',
         instance='myinstance',
         cluster='mycluster',
-        chronos_job=fake_job
+        chronos_job=fake_job,
+        soa_dir='fake_soa_dir',
     )
     assert status == pysensu_yelp.Status.CRITICAL
     assert "Job myservice.myinstance with schedule * * * * * hasn't run since " in output

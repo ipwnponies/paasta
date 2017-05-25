@@ -139,6 +139,14 @@ class TestMonitoring_Tools:
             get_monitoring_config_value_patch.assert_called_once_with('realert_every', self.overrides,
                                                                       self.service, self.soa_dir, monitoring_defaults)
 
+    def test_get_chronos_job_acceptable_delay(self):
+        with mock.patch(
+            'paasta_tools.monitoring_tools.__get_monitoring_config_value', autospec=True
+        ) as get_monitoring_config_value_patch:
+            monitoring_tools.get_chronos_job_acceptable_delay(self.overrides, self.service, self.soa_dir)
+            get_monitoring_config_value_patch.assert_called_once_with('chronos_job_acceptable_delay', self.overrides, self.service,
+                                                                      self.soa_dir)
+
     def test_get_check_every(self):
         with mock.patch(
             'paasta_tools.monitoring_tools.__get_monitoring_config_value', autospec=True

@@ -208,7 +208,7 @@ def message_for_stuck_job(service, instance, cluster, last_run_iso_time, interva
                  'schedule': schedule}
 
 
-def sensu_message_status_for_jobs(chronos_job_config, service, instance, cluster, chronos_job):
+def sensu_message_status_for_jobs(chronos_job_config, service, instance, cluster, chronos_job, soa_dir):
     if not chronos_job:
         if chronos_job_config.get_disabled():
             sensu_status = pysensu_yelp.Status.OK
@@ -224,7 +224,12 @@ def sensu_message_status_for_jobs(chronos_job_config, service, instance, cluster
             sensu_status = pysensu_yelp.Status.OK
             output = "Job %s%s%s is disabled - ignoring status." % (service, utils.SPACER, instance)
         else:
-            acceptable_delay = 15 * 60
+            monitoring_overrides = chronos_job_config.get_monitoring()
+            acceptable_delay = monitoring_tools.get_chronos_job_acceptable_delay(
+                overrides=monitoring_overrides,
+                service=chronos_job_config.service,
+                soa_dir=soa_dir)
+
             last_run_time, state = chronos_tools.get_status_last_run(chronos_job)
             interval_in_seconds = chronos_job_config.get_schedule_interval_in_seconds(seconds_ago=acceptable_delay)
             if job_is_stuck(last_run_time, interval_in_seconds, acceptable_delay):
@@ -273,7 +278,8 @@ def main():
                 service=service,
                 instance=instance,
                 cluster=cluster,
-                chronos_job=chronos_job
+                chronos_job=chronos_job,
+                soa_dir=soa_dir,
             )
             if sensu_status is not None:
                 monitoring_overrides = compose_monitoring_overrides_for_service(
